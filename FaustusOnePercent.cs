@@ -38,20 +38,30 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
             return;
 
         var panel = GameController.IngameState?.IngameUi?.CurrencyExchangePanel;
-        if (panel == null || !panel.IsVisible)
-            return;
+        bool exchangeVisible = panel != null && panel.IsVisible;
 
-        // Keep the overlay out of the way while selecting a currency.
-        if (panel.CurrencyPicker?.IsVisible == true)
-            return;
+        // Diagnostic mode: always show the window while the plugin is enabled.
+        // This makes a missing/stale game UI element distinguishable from a plugin
+        // that failed to load. The picker visibility flag is intentionally ignored:
+        // it can remain true even after the selector is closed in some game builds.
+        Vector2 overlayPos = exchangeVisible
+            ? new Vector2(panel.GetClientRectCache.X + 25, panel.GetClientRectCache.Y + 280)
+            : new Vector2(730, 230);
+        ImGui.SetNextWindowPos(overlayPos, ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new Vector2(430, 0), ImGuiCond.Always);
 
-        var rect = panel.GetClientRectCache;
-        // First-use-only: the window can be moved by dragging its title bar.
-        ImGui.SetNextWindowPos(new Vector2(rect.X + 20, rect.Y + 240), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new Vector2(400, 0), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("Faustus 1% Undercut", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse))
         {
-            ImGui.Text("Sell the selected I HAVE currency for I WANT.");
+            if (!exchangeVisible)
+            {
+                ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Plugin loaded; waiting for Currency Exchange.");
+                ImGui.TextWrapped(panel == null
+                    ? "ExileCore CurrencyExchangePanel is null. Open Faustus -> Currency Exchange."
+                    : "ExileCore reports CurrencyExchangePanel.IsVisible = false. Try closing and reopening the exchange.");
+            }
+            else
+            {
+                ImGui.Text("Sell the selected I HAVE currency for I WANT.");
             ImGui.Checkbox("Read I HAVE amount from Faustus", ref _readHaveFromGame);
             int have = 0;
             bool validAmount;
@@ -115,6 +125,7 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
                 ImGui.TextWrapped(_status);
             ImGui.Separator();
             ImGui.TextWrapped("Review both values and click Place Order YOURSELF.");
+            }
         }
         ImGui.End();
     }

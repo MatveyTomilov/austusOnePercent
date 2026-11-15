@@ -2,12 +2,12 @@
 
 ## F7: fill the selected pair
 
-1. Open Faustus's Currency Exchange and choose **I WANT** and **I HAVE**.
+1. Open Faustus's Currency Exchange, choose **Chaos Orb** in **I WANT**, and choose the currency to sell in **I HAVE**.
 2. Close the currency picker and press **F7**.
-3. The plugin refreshes the in-game owned count for the selected HAVE currency, fills **all available units**, and fills WANT at the smallest integer step below the cheapest competing seller.
+3. The plugin refreshes the in-game owned count for the selected HAVE currency, fills **all available units**, and fills WANT at the whole-stack competing seller quote rounded down, **minus 1 Chaos**.
 4. Review both numbers and click **Place Order** yourself.
 
-F7 uses in-game sell offers, not poe.ninja or instant-exchange bids. For a seller price `p` and available quantity `q`, WANT is `ceil(q * p) - 1`. For example, 99 Scouring at a competing price of 17 Chaos / 20 Scouring becomes **84 Chaos / 99 Scouring**. No fixed 1% discount is applied. The actual discount, including rounding, must remain within the configured limit (2% by default). If the lot is too small to improve the price safely, the fill is refused.
+F7 uses in-game sell offers, not poe.ninja or instant-exchange bids. For a seller price `p` and available quantity `q`, WANT is `floor(q * p) - 1`. For example, 5 essences at 5.9 Chaos each become **28 Chaos / 5 essences**. This applies to every HAVE currency, including essences. There is no percentage discount cap for F7; the configured percentage cap still applies to the queue. Zero or negative return is refused. F7 requires WANT = Chaos Orb so one Divine cannot accidentally be treated as one Chaos.
 
 F7 operates only on the selected pair. It is independent of Favorites, queue pricing mode, queue reserve limits and the pending-order journal. It never submits an order, including when Auto Place is enabled for the queue. It verifies both currencies, game focus and both filled inputs; F9 cancels an operation. Do not move the mouse while the fields are being filled.
 

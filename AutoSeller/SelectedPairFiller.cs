@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace FaustusOnePercent.AutoSeller;
 
-/// <summary>F7: maximum available HAVE, minimum integer tick below the best seller. Fills only.</summary>
+/// <summary>F7: maximum available HAVE, one Chaos below the whole-stack seller quote. Fills only.</summary>
 public static class SelectedPairFiller
 {
     public static async Task<SaleQuote> FillMaximum(IGameUiAdapter ui, SellerPolicy settings, CancellationToken token)
@@ -19,6 +19,8 @@ public static class SelectedPairFiller
         Verify();
         var pair = ui.Snapshot().SelectedPair;
         if (pair == null || pair.Want.Metadata == pair.Have.Metadata) throw new InvalidOperationException("Select different I WANT and I HAVE currencies first");
+        if (pair.Want.Metadata != "Metadata/Items/Currency/CurrencyRerollRare" && pair.Want.Name != "Chaos Orb")
+            throw new InvalidOperationException("Select Chaos Orb in I WANT for the F7 minus-one-Chaos fill");
         var stock = await ui.RefreshSelectedStock(pair, token);
         Verify(pair);
         if (!stock.Available.HasValue || (!stock.PickerOwned.HasValue && !stock.Complete))
@@ -27,7 +29,10 @@ public static class SelectedPairFiller
             throw new InvalidOperationException("Available quantity is zero or exceeds the game's integer limit");
         int quantity = (int)stock.Available.Value;
         // F7 is independent of queue mode, reserves and automatic placement preferences.
-        var policy = settings with { Mode = PricingMode.BeatCompetitor, MinimumQuantity = 1, KeepReserve = 0, AutoPlace = false };
+        // The user explicitly requests floor(total seller value) - 1 Chaos for
+        // every HAVE currency, without a percentage limit. Never return zero.
+        var policy = settings with { Mode = PricingMode.OneUnitBelowSeller, MinimumQuantity = 1,
+            KeepReserve = 0, AutoPlace = false, MaximumActualDiscount = 99 };
         for (int attempt = 0; attempt < 2; attempt++)
         {
             Verify(pair);

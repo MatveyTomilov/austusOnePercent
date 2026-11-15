@@ -40,7 +40,7 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
         executor = new(adapter, diagnostics.Log, diagnostics.Journal, diagnostics.ClearPending, () => diagnostics.HasPending);
         foreach (var key in new[] { Settings.ScanKey, Settings.PreviewKey, Settings.StartKey, Settings.StopKey, Settings.AutoKey })
         { Input.RegisterKey(key.Value); key.OnValueChanged += () => Input.RegisterKey(key.Value); }
-        LogMessage("Faustus AutoSeller initialized. F7=MAX+beat-seller; Auto Place OFF.");
+        LogMessage("Faustus AutoSeller initialized. F7=MAX-minus-1-Chaos (all HAVE currencies); Auto Place OFF.");
         return true;
     }
     private void Save() => File.WriteAllText(configPath, JsonConvert.SerializeObject(options, Formatting.Indented));
@@ -113,9 +113,9 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
                 ImGui.SameLine(); if (ImGui.Button("Start Selling")) Start(true);
                 if (busy) ImGui.EndDisabled();
                 ImGui.SameLine(); if (ImGui.Button("EMERGENCY STOP")) Stop();
-                ImGui.Text($"F6 scan | F7 fill MAX + beat seller | F8 start | F9 STOP | F10 Auto Place: {(options.AutoPlaceOrders ? "ON" : "OFF")}");
+                ImGui.Text($"F6 scan | F7 MAX, seller total -1 Chaos | F8 start | F9 STOP | F10 Auto Place: {(options.AutoPlaceOrders ? "ON" : "OFF")}");
                 if (busy) ImGui.BeginDisabled();
-                if (ImGui.Button("F7: Fill current pair MAX + beat seller")) FillSelectedMaximum();
+                if (ImGui.Button("F7: Fill current pair MAX, seller total -1 Chaos")) FillSelectedMaximum();
                 if (busy) ImGui.EndDisabled();
                 if (diagnostics.HasPending)
                 {
@@ -126,7 +126,7 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
                 {
                     if (busy) ImGui.BeginDisabled();
                     int mode = (int)options.PricingMode;
-                    if (ImGui.Combo("Pricing Mode", ref mode, "Beat seller (minimum integer step)\0Match seller\0Undercut %\0Instant exchange (bids)\0")) { options.PricingMode = (PricingMode)mode; Save(); }
+                    if (ImGui.Combo("Pricing Mode", ref mode, "Beat seller (minimum integer step)\0Match seller\0Undercut %\0Instant exchange (bids)\0Whole seller total minus 1 WANT\0")) { options.PricingMode = (PricingMode)mode; Save(); }
                     float percent = (float)options.UndercutPercent;
                     if (ImGui.InputFloat("Undercut %", ref percent)) { options.UndercutPercent = (decimal)Math.Clamp(percent, 0, 50); Save(); }
                     float max = (float)options.MaximumActualDiscount;

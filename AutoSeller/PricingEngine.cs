@@ -21,16 +21,26 @@ public static class PricingEngine
         var source = policy.Mode == PricingMode.InstantExchange ? book.CounterOrders : book.Competitors;
         var offers = source.Where(o => o.Want > 0 && o.Have > 0 && o.ListedCount > 0).ToArray();
         if (offers.Length == 0) return SaleQuote.Invalid("No valid offers for this pricing mode");
-        decimal reference = policy.Mode == PricingMode.InstantExchange
-            ? offers.Max(o => (decimal)o.Want / o.Have) : offers.Min(o => (decimal)o.Want / o.Have);
+        var benchmark = offers.Aggregate((best, candidate) =>
+        {
+            long left = (long)candidate.Want * best.Have;
+            long right = (long)best.Want * candidate.Have;
+            return (policy.Mode == PricingMode.InstantExchange ? left > right : left < right) ? candidate : best;
+        });
+        decimal reference = (decimal)benchmark.Want / benchmark.Have;
         decimal discount = policy.Mode == PricingMode.Undercut ? policy.UndercutPercent : 0;
-        decimal fair = quantity * reference;
-        // At a fixed HAVE amount, floor WANT. Never invert the ratio or silently change volume.
+        long numerator = (long)quantity * benchmark.Want;
+        // Exact integer math: ceil(n/d)-1 = floor((n-1)/d). Dividing a repeating
+        // decimal first can turn an exact 18 into 18.000...001 and fail to beat it.
         decimal raw = policy.Mode == PricingMode.BeatCompetitor
-            ? decimal.Ceiling(fair) - 1 : decimal.Floor(fair * (1 - discount / 100));
+            ? (numerator - 1) / benchmark.Have
+            : policy.Mode == PricingMode.OneUnitBelowSeller ? numerator / benchmark.Have - 1
+            : policy.Mode == PricingMode.Undercut
+                ? decimal.Floor(numerator * (1 - discount / 100) / benchmark.Have)
+                : numerator / benchmark.Have;
         if (raw < 1) return SaleQuote.Invalid("Would receive zero; increase the lot");
         if (raw > int.MaxValue) return SaleQuote.Invalid("Result exceeds integer limit");
-        var actual = 100 * (1 - raw / fair);
+        var actual = 100 * (numerator - raw * benchmark.Have) / numerator;
         if (actual > policy.MaximumActualDiscount + 0.00000001m)
             return SaleQuote.Invalid($"Rounding discount {actual:0.####}% exceeds limit");
         var price = raw / quantity;

@@ -48,6 +48,12 @@ internal static class AutoSellerTests
         var liveBook = MarketReader.Normalize(Pair, [new(50,59,403)], [new(20,17,120)], MarketFeedMapping.OfferedStockIsCompetitors, DateTimeOffset.UtcNow);
         var liveQuote = PricingEngine.Calculate(Pair, 99, liveBook, new());
         Check(liveQuote.Valid && liveQuote.Want == 84 && liveQuote.ReferencePrice == .85m, "live Scouring feed: ask 17/20, bid 50/59; 99 Scour priced at 84 Chaos");
+        var repeating = Book() with { Competitors = [new(9,14,100)] };
+        var exactTick = PricingEngine.Calculate(Pair, 28, repeating, new(MaximumActualDiscount:99));
+        Check(exactTick.Valid && exactTick.Want == 17 && exactTick.ActualDiscount > 0,
+            "exact rational tick: 28 units at 9/14 ask must beat 18, not match it");
+        Check(!PricingEngine.Calculate(Pair, 28, repeating, new()).Valid,
+            "queue still enforces the configured percentage cap after exact rounding fix");
         var fake = new Fake(); var executor = new OrderExecutor(fake);
         await executor.Run(new(), [], false);
         Check(executor.State == ExecutorState.COMPLETE && fake.Places == 0 && fake.Fills == 0, "Preview never fills or submits");
@@ -101,6 +107,20 @@ internal static class AutoSellerTests
         fake = new() { ChangeMarket=true };
         filledMax = await SelectedPairFiller.FillMaximum(fake, new(), CancellationToken.None);
         Check(filledMax.Want == 199 && fake.Fills == 2 && fake.Places == 0, "F7 refreshes a changed seller price once before returning");
+        fake = new() { StockValue = Stock(9) };
+        filledMax = await SelectedPairFiller.FillMaximum(fake, new(MaximumActualDiscount:2), CancellationToken.None);
+        Check(filledMax.Have == 9 && filledMax.Want == 8 && filledMax.ActualDiscount > 11 && fake.Places == 0,
+            "F7 allows the explicit minimum tick on small essence lots despite a 2% queue cap");
+        fake = new() { StockValue = Stock(1) }; stockBlocked = false;
+        try { await SelectedPairFiller.FillMaximum(fake, new(), CancellationToken.None); } catch(InvalidOperationException) { stockBlocked = true; }
+        Check(stockBlocked && fake.Fills == 0 && fake.Places == 0, "F7 still refuses a zero-return quote after lifting its percentage cap");
+        var fractional = Book() with { Competitors = [new(59,10,100)] };
+        var flatOne = PricingEngine.Calculate(Pair, 5, fractional, new(Mode:PricingMode.OneUnitBelowSeller, MaximumActualDiscount:99));
+        Check(flatOne.Valid && flatOne.Want == 28 && flatOne.Have == 5,
+            "flat discount: floor(5 essences at 5.9 Chaos) minus 1 = 28 Chaos, not 29");
+        fake = new() { Selected = new(Divine, Scour, Verified:true) }; inputBlocked = false;
+        try { await SelectedPairFiller.FillMaximum(fake, new(), CancellationToken.None); } catch(InvalidOperationException) { inputBlocked = true; }
+        Check(inputBlocked && fake.Fills == 0 && fake.Places == 0, "F7 never mistakes one Divine for a one-Chaos discount");
     }
     sealed class Fake : IGameUiAdapter
     {

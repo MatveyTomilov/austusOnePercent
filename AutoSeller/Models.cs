@@ -11,7 +11,7 @@ public sealed record FavoritePair(Currency Want, Currency Have, string UiPath = 
 {
     public string Key => Want.Metadata + " <- " + Have.Metadata;
 }
-public enum PricingMode { BeatCompetitor, MatchCompetitor, Undercut, InstantExchange }
+public enum PricingMode { BeatCompetitor, MatchCompetitor, Undercut, InstantExchange, OneUnitBelowSeller }
 public enum ExecutorState { IDLE, READING_FAVORITES, SCANNING_STASH, BUILDING_QUEUE, SELECTING_PAIR,
     READING_MARKET, CALCULATING, FILLING, VERIFYING, PLACING, CONFIRMING, WAITING_MANUAL, NEXT, STOPPED, ERROR, COMPLETE }
 public sealed class PairRule

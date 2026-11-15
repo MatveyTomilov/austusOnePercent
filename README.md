@@ -1,58 +1,57 @@
-# FaustusOnePercent — PoE 1 / ExileCore
+# Faustus AutoSeller — PoE 1 / ExileCore
 
-A one-button, human-confirmed 1% undercut tool for the **Currency Exchange** at Faustus.
+## F7: fill the selected pair
 
-## What it does
+1. Open Faustus's Currency Exchange and choose **I WANT** and **I HAVE**.
+2. Close the currency picker and press **F7**.
+3. The plugin refreshes the in-game owned count for the selected HAVE currency, fills **all available units**, and fills WANT at the smallest integer step below the cheapest competing seller.
+4. Review both numbers and click **Place Order** yourself.
 
-1. In game, choose `I WANT` and `I HAVE` currencies in Faustus's Currency Exchange.
-2. Enter how many units of `I HAVE` to sell **in Faustus's own I HAVE input field**. The plugin reads that amount automatically. If this is unavailable, uncheck **Read I HAVE amount from Faustus** and enter an amount manually in the overlay.
-3. The overlay reads the visible market listings for this pair, takes the **lowest I WANT / I HAVE** ratio, and calculates 1% less `I WANT` at your fixed `I HAVE` quantity.
-4. Press **Fill 1% undercut**. In the default mode, the plugin fills **only I WANT** and verifies I HAVE has not changed. In manual mode, it fills both numbers. It optionally reads back the values to verify them.
-5. **You must click `Place Order` yourself.** This plugin does not trade automatically, send orders, monitor inventories, or repeat trades.
+F7 uses in-game sell offers, not poe.ninja or instant-exchange bids. For a seller price `p` and available quantity `q`, WANT is `ceil(q * p) - 1`. For example, 99 Scouring at a competing price of 17 Chaos / 20 Scouring becomes **84 Chaos / 99 Scouring**. No fixed 1% discount is applied. The actual discount, including rounding, must remain within the configured limit (2% by default). If the lot is too small to improve the price safely, the fill is refused.
 
-Example: sell 5 Divine Orbs when the best ratio is 100 Chaos/Divine -> fill `I WANT 495` Chaos, `I HAVE 5` Divine.
+F7 operates only on the selected pair. It is independent of Favorites, queue pricing mode, queue reserve limits and the pending-order journal. It never submits an order, including when Auto Place is enabled for the queue. It verifies both currencies, game focus and both filled inputs; F9 cancels an operation. Do not move the mouse while the fields are being filled.
 
-## Safety and limitations
+## Other functionality retained
 
-- This is a third-party automation plugin; use at your own risk and check Grinding Gear Games' rules.
-- Rounding up would fail to undercut, so rounding is downward. If the resulting real discount exceeds the configurable limit (2% by default), the plugin **blocks filling**. Try a larger amount.
-- The game can return unfilled currency for large order lots. The overlay warns when the reduced ratio requires more than 200 units on the I HAVE side per minimum whole lot.
-- It reads the visible `OfferedItemStock` feed used by `CurrencyRatioExchange`. A sparse, outdated or unusual order book can yield an undesirable benchmark. Always verify the displayed quote before placing an order.
-- Currency quantity is taken from the I HAVE field by default, or entered manually in fallback mode; it is not a claim that you have that many units available. The game validates your actual currency.
-- While this diagnostic build is enabled, the overlay stays visible even when Currency Exchange is closed. If ExileCore does not detect the exchange, the overlay reports whether the panel is missing or marked invisible.
-- The overlay stays anchored over the lower part of the exchange while visible. The currency-picker visibility flag is ignored to avoid hiding the overlay in some ExileCore builds.
-- If no overlay is visible anywhere (including while exchange is closed), first check that ExileCore has successfully compiled and enabled this plugin in HUD Settings. Look for build errors and plugin load messages.
-- The names / UI tree may change with game or ExileCore updates.
-- **Build and in-game behavior have not been verified in this environment.** Only the source is provided.
+- **F6:** read Favorites and refresh stock.
+- **Preview Sales:** preview the Favorites queue (still available as a button).
+- **F8 / Start Selling:** prepare the Favorites queue for manual confirmation, or use its separately enabled Auto Place mode.
+- **F9:** emergency stop.
+- **F10:** explicitly toggle Auto Place for the queue. Auto Place starts OFF after every plugin reload.
+- Pricing modes: minimum integer step, match seller, percentage undercut, instant exchange.
+- Legacy one-click 1% filling remains in the selected-pair section.
+- UI Inspector exports element paths, text, metadata, local/inherited visibility and bounds.
 
-## Install / Build
+The queue's automatic submission and acknowledgement have unit coverage, but the full two-order automatic sequence has **not** been validated live. A manual queue run did detect two Favorites, confirm available stock and fill the first order. A focus change stopped it before submission. An uncertain queue result keeps a pending journal until the user reconciles active orders. This journal does not prevent F7 fills.
 
-1. Get a current PoE 1 ExileCore / ExileAPI build compatible with the current game patch.
-2. Put this folder under `ExileCore/Plugins/Source/FaustusOnePercent/`.
-3. Install the **.NET 10 SDK** (needed for manual builds).
-4. From the plugin folder run:
+## Installation and build
 
-   ```powershell
-   dotnet build -c Release
-   ```
+Use one source folder under `ExileCore/Plugins/Source/`. Keep the class/plugin name `FaustusOnePercent`; the overlay is named **Faustus AutoSeller**. Do not install a second copy alongside it.
 
-   If ExileCore DLLs aren't in the ancestor installation root, pass its folder explicitly:
-
-   ```powershell
-   dotnet build -c Release -p:ExileCorePath="C:\path\to\ExileCore"
-   ```
-
-5. Restart ExileCore and enable `FaustusOnePercent` under Plugins. Enable **Show overlay**.
-6. Open Faustus -> Currency Exchange, choose both currencies, close the currency picker, enter the amount to sell in the in-game I HAVE field, verify the preview, and press **Fill 1% undercut**.
-
-## Optional math tests
+The project targets `net10.0-windows`, x64, and the host's Hexa.NET.ImGui. A .NET 10 SDK is needed for manual builds; the installed host's DLLs are referenced rather than redistributed.
 
 ```powershell
+dotnet build -c Release -p:ExileCorePath="C:\path\to\ExileCore"
 dotnet run --project Tests/QuoteMathTests.csproj
 ```
 
-## Compatibility notes
+Load/reload the plugin through ExileCore. Hotkeys can be changed in HUD Settings. The existing serialized `PreviewKey` setting now invokes the F7 selected-pair fill, retaining its configured key.
 
-Targets `net10.0-windows`, `x64`, and the newer `Hexa.NET.ImGui` API. References `ExileCore.dll`, `GameOffsets.dll`, and `Hexa.NET.ImGui.dll` from ExileCore. The exact DLL layout may differ by installed ExileCore distribution. The code needs to be tested against your specific build.
+## Configuration and diagnostics
 
-The model access and input strategy are based on the public, MIT-licensed [CurrencyRatioExchange](https://github.com/exCore-PoE1/CurrencyRatioExchange) plugin, but this is a separate implementation.
+Files are under the host's `config/FaustusAutoSeller/` directory:
+
+- `settings.json`: pricing, queue limits and validated UI bindings.
+- `events.log`: operation status and errors.
+- `exchange-ui.json`: requested UI/market/stock diagnostic export.
+- `pending-order.json`: protection against duplicate queue submissions.
+
+The audited English PoE 1 layout has WANT/HAVE inputs at exchange children 5/8, the currency picker at child 20, Favorites at `exchange/20/6/1/0/0`, gold cost at `exchange/15`, and Place Order text at `exchange/16/0`. In the audited host, the built-in `IngameUi.CurrencyExchangePanel` pointed at another hidden panel; the adapter resolves the actual exchange by semantic labels or a validated root binding. Do not assume root index 189 remains correct after an update.
+
+In the verified market mapping, **OfferedItemStock** represents sellers from the opposite perspective, so raw `(Get, Give)` is normalized to `(Give, Get)` for our WANT:HAVE. **WantedItemStock** is already normalized for instant exchange bids. Unverified mapping blocks pricing. A fresh installation requires checking/saving the bindings in UI Inspector; changing game language or host/game layout can invalidate them.
+
+The inventory scanner deduplicates loaded locations and labels incomplete stash data as partial. F7 requires a newly confirmed picker-owned count or a complete inventory snapshot before calling its quantity a maximum. Existing order escrow is not subtracted twice from an available picker balance. Missing or inconsistent data causes a diagnostic error instead of guessing a quantity.
+
+Third-party input automation may violate GGG rules. The implementation reads ExileCore data and sends ordinary UI input; it does not inject code, write game memory or install drivers/services.
+
+The public [CurrencyRatioExchange](https://github.com/exCore-PoE1/CurrencyRatioExchange) implementation is an API/input reference. This plugin remains a separate implementation in the existing FaustusOnePercent repository.

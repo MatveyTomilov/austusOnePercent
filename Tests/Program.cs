@@ -1,3 +1,4 @@
+using System;
 using FaustusOnePercent;
 
 static void Check(bool condition, string name)
@@ -15,4 +16,5 @@ var ratio = QuoteMath.Calculate(100, [new MarketOrder(1, 1, 1)]);
 Check(ratio.IsValid && ratio.Want == 99 && ratio.MinimalHaveLot == 100, "exact 1% with small integers");
 Check(!QuoteMath.Calculate(100, [new MarketOrder(0, 1, 2)]).IsValid, "ignores invalid market orders");
 Check(!QuoteMath.Calculate(0, [new MarketOrder(100, 1, 2)]).IsValid, "rejects invalid quantity");
+await AutoSellerTests.Run();
 Console.WriteLine("All tests passed.");

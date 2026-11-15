@@ -1,6 +1,7 @@
 using ExileCore.Shared.Attributes;
 using ExileCore.Shared.Interfaces;
 using ExileCore.Shared.Nodes;
+using System.Windows.Forms;
 
 namespace FaustusOnePercent;
 
@@ -10,6 +11,16 @@ public sealed class FaustusOnePercentSettings : ISettings
 
     [Menu("Show overlay", "Show the one-click 1% undercut tool beside the Currency Exchange window.")]
     public ToggleNode ShowOverlay { get; set; } = new(true);
+    [Menu("Scan Favorites hotkey")]
+    public HotkeyNodeV2 ScanKey { get; set; } = new(Keys.F6);
+    [Menu("Fill maximum + beat seller hotkey", "Fill the selected pair only. Uses maximum available HAVE and the smallest integer price improvement; does not place an order.")]
+    public HotkeyNodeV2 PreviewKey { get; set; } = new(Keys.F7);
+    [Menu("Start selling hotkey")]
+    public HotkeyNodeV2 StartKey { get; set; } = new(Keys.F8);
+    [Menu("Emergency stop hotkey")]
+    public HotkeyNodeV2 StopKey { get; set; } = new(Keys.F9);
+    [Menu("Toggle Auto Place hotkey", "Only toggles the mode; does not start a sale. Automation may violate GGG rules.")]
+    public HotkeyNodeV2 AutoKey { get; set; } = new(Keys.F10);
 
     [Menu("Max rounding undercut (%)", "Block fills where rounding produces a discount greater than this percentage.")]
     public RangeNode<int> MaxActualDiscountPercent { get; set; } = new(2, 1, 10);

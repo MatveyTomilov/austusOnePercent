@@ -19,8 +19,9 @@ Example: sell 5 Divine Orbs when the best ratio is 100 Chaos/Divine -> fill `I W
 - The game can return unfilled currency for large order lots. The overlay warns when the reduced ratio requires more than 200 units on the I HAVE side per minimum whole lot.
 - It reads the visible `OfferedItemStock` feed used by `CurrencyRatioExchange`. A sparse, outdated or unusual order book can yield an undesirable benchmark. Always verify the displayed quote before placing an order.
 - Currency quantity is taken from the I HAVE field by default, or entered manually in fallback mode; it is not a claim that you have that many units available. The game validates your actual currency.
-- The overlay appears only with the Currency Exchange panel open and the currency picker closed.
-- The overlay initially appears below the exchange order fields, inside the large Faustus background area. Drag its title to reposition it.
+- While this diagnostic build is enabled, the overlay stays visible even when Currency Exchange is closed. If ExileCore does not detect the exchange, the overlay reports whether the panel is missing or marked invisible.
+- The overlay stays anchored over the lower part of the exchange while visible. The currency-picker visibility flag is ignored to avoid hiding the overlay in some ExileCore builds.
+- If no overlay is visible anywhere (including while exchange is closed), first check that ExileCore has successfully compiled and enabled this plugin in HUD Settings. Look for build errors and plugin load messages.
 - The names / UI tree may change with game or ExileCore updates.
 - **Build and in-game behavior have not been verified in this environment.** Only the source is provided.
 

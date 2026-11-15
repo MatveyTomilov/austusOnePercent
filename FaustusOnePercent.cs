@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using ExileCore;
 using ExileCore.PoEMemory;
+using FaustusOnePercent.Utils;
 using Hexa.NET.ImGui;
 
 namespace FaustusOnePercent;

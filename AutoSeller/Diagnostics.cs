@@ -9,7 +9,9 @@ public sealed class Diagnostics
     public string DirectoryPath { get; }
     public string LastFile { get; private set; } = "";
     private readonly object logGate = new();
-    public Diagnostics(string directory) { DirectoryPath = directory; Directory.CreateDirectory(directory); }
+    private readonly string journalFile;
+    public Diagnostics(string directory, string journalName = "pending-order.json")
+    { DirectoryPath = directory; Directory.CreateDirectory(directory); journalFile = Path.Combine(directory, journalName); }
     public void Log(string message)
     {
         // A diagnostic write failure must not interrupt order acknowledgement or hide the real error.
@@ -22,8 +24,8 @@ public sealed class Diagnostics
         File.WriteAllText(LastFile, JsonConvert.SerializeObject(value, Formatting.Indented));
     }
     public void Journal(string stage, FavoritePair pair, SaleQuote quote) => File.WriteAllText(
-        Path.Combine(DirectoryPath, "pending-order.json"), JsonConvert.SerializeObject(new { stage, pair, quote }));
-    public bool HasPending => File.Exists(Path.Combine(DirectoryPath, "pending-order.json"));
+        journalFile, JsonConvert.SerializeObject(new { stage, pair, quote }));
+    public bool HasPending => File.Exists(journalFile);
     // Called only after positive acknowledgement or explicit user reconciliation.
-    public void ClearPending() { var path = Path.Combine(DirectoryPath, "pending-order.json"); if (File.Exists(path)) File.Delete(path); }
+    public void ClearPending() { if (File.Exists(journalFile)) File.Delete(journalFile); }
 }

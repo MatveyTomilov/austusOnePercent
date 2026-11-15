@@ -43,7 +43,7 @@ public sealed class OrderExecutor
         token.ThrowIfCancellationRequested(); var s = ui.Snapshot();
         if (!s.PanelOpen || !s.Foreground) throw new InvalidOperationException("Exchange closed or game lost focus");
     }
-    private static bool Acknowledged(OrderInfo order, FavoritePair pair, SaleQuote quote, HashSet<int> before)
+    internal static bool Acknowledged(OrderInfo order, FavoritePair pair, SaleQuote quote, HashSet<int> before)
         => !before.Contains(order.Id) && !order.Canceled && order.WantMetadata == pair.Want.Metadata
             && order.HaveMetadata == pair.Have.Metadata && order.OriginalHave == quote.Have
             && order.RatioWant > 0 && order.RatioHave > 0

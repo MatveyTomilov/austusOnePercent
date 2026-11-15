@@ -138,7 +138,7 @@ public sealed class GameUiAdapter : IGameUiAdapter
     public async Task<StockEvidence> RefreshSelectedStock(FavoritePair pair, CancellationToken token)
     {
         Guard(token, pair);
-        if (PickerElement?.IsVisibleLocal == true) throw new InvalidOperationException("Finish selecting currencies, close the picker, then press F7");
+        if (PickerElement?.IsVisibleLocal == true) throw new InvalidOperationException("Finish selecting currencies, close the picker, then press Mouse5");
         await OpenFavorites(token);
         Guard(token, pair);
         var visibleCounts = CurrencyInventoryScanner.ReadPickerOwned(CaptureTree(), Catalog);

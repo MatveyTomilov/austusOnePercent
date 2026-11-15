@@ -17,6 +17,7 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
     private GameUiAdapter adapter;
     private OrderExecutor executor;
     private Diagnostics diagnostics;
+    private Diagnostics selectedDiagnostics;
     private string configPath;
     private FavoritesResult favorites = new(Array.Empty<FavoritePair>(), false, "Not scanned");
     private string status = "Ready";
@@ -32,6 +33,7 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
     {
         string directory = Path.Combine(Directory.GetCurrentDirectory(), "config", "FaustusAutoSeller");
         diagnostics = new(directory); configPath = Path.Combine(directory, "settings.json");
+        selectedDiagnostics = new(directory, "selected-order-pending.json");
         try { options = File.Exists(configPath) ? JsonConvert.DeserializeObject<AutoSellerSettings>(File.ReadAllText(configPath)) : new(); }
         catch (Exception ex) { options = new(); LogError("AutoSeller config: " + ex.Message); }
         options ??= new(); options.AutoPlaceOrders = false;
@@ -40,7 +42,7 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
         executor = new(adapter, diagnostics.Log, diagnostics.Journal, diagnostics.ClearPending, () => diagnostics.HasPending);
         foreach (var key in new[] { Settings.ScanKey, Settings.PreviewKey, Settings.StartKey, Settings.StopKey, Settings.AutoKey })
         { Input.RegisterKey(key.Value); key.OnValueChanged += () => Input.RegisterKey(key.Value); }
-        LogMessage("Faustus AutoSeller initialized. F7=MAX-minus-1-Chaos (all HAVE currencies); Auto Place OFF.");
+        LogMessage("Faustus AutoSeller initialized. Mouse5=MAX-minus-1-Chaos + Place Order; queue Auto Place OFF.");
         return true;
     }
     private void Save() => File.WriteAllText(configPath, JsonConvert.SerializeObject(options, Formatting.Indented));
@@ -113,14 +115,19 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
                 ImGui.SameLine(); if (ImGui.Button("Start Selling")) Start(true);
                 if (busy) ImGui.EndDisabled();
                 ImGui.SameLine(); if (ImGui.Button("EMERGENCY STOP")) Stop();
-                ImGui.Text($"F6 scan | F7 MAX, seller total -1 Chaos | F8 start | F9 STOP | F10 Auto Place: {(options.AutoPlaceOrders ? "ON" : "OFF")}");
+                ImGui.Text($"F6 scan | Mouse5: MAX -1 Chaos + PLACE | F8 queue | F9 STOP | F10 queue Auto Place: {(options.AutoPlaceOrders ? "ON" : "OFF")}");
                 if (busy) ImGui.BeginDisabled();
-                if (ImGui.Button("F7: Fill current pair MAX, seller total -1 Chaos")) FillSelectedMaximum();
+                if (ImGui.Button("Mouse5: Sell current pair MAX, seller total -1 Chaos")) FillSelectedMaximum();
                 if (busy) ImGui.EndDisabled();
                 if (diagnostics.HasPending)
                 {
                     ImGui.TextWrapped("Unconfirmed order journal. Check active orders and balances before clearing.");
                     if (!busy && ImGui.Button("I reconciled active orders — clear pending journal")) { diagnostics.ClearPending(); status = "Pending journal cleared by user"; }
+                }
+                if (selectedDiagnostics.HasPending)
+                {
+                    ImGui.TextWrapped("Selected-pair submission unconfirmed. Inspect active orders before trying again.");
+                    if (!busy && ImGui.Button("I reconciled the selected-pair order — unlock Mouse5")) selectedDiagnostics.ClearPending();
                 }
                 if (ImGui.CollapsingHeader("Pricing and limits"))
                 {
@@ -207,19 +214,21 @@ public sealed class FaustusOnePercent : BaseSettingsPlugin<FaustusOnePercentSett
     }
     private void FillSelectedMaximum()
     {
-        if (filling || executor.Running) return;
+        if (filling || executor.Running || !adapter.Snapshot().PanelOpen) return;
         filling = true; manualAction = new(); var token = manualAction.Token;
         var policy = options.Policy;
-        status = "F7: refreshing available stock and seller price...";
+        status = "Mouse5: refreshing stock, pricing and preparing one order...";
         _ = Task.Run(async () =>
         {
             try
             {
-                var quote = await SelectedPairFiller.FillMaximum(adapter, policy, token);
-                status = $"F7 filled: WANT {quote.Want} / HAVE {quote.Have}; {quote.ActualDiscount:0.####}% below seller. Review and click Place Order manually.";
+                var sale = await SelectedPairSeller.SellMaximum(adapter, policy, selectedDiagnostics.Journal,
+                    selectedDiagnostics.ClearPending, () => selectedDiagnostics.HasPending, token);
+                var quote = sale.Quote;
+                status = $"Mouse5 confirmed order #{sale.OrderId}: WANT {quote.Want} / HAVE {quote.Have}; {quote.ActualDiscount:0.####}% below seller.";
                 diagnostics.Log(status);
             }
-            catch (Exception ex) { status = "F7: " + ex.Message; diagnostics.Log(status); }
+            catch (Exception ex) { status = "Mouse5: " + ex.Message; diagnostics.Log(status); }
             finally { filling = false; }
         });
     }

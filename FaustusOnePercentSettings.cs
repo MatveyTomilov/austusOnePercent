@@ -13,8 +13,8 @@ public sealed class FaustusOnePercentSettings : ISettings
     public ToggleNode ShowOverlay { get; set; } = new(true);
     [Menu("Scan Favorites hotkey")]
     public HotkeyNodeV2 ScanKey { get; set; } = new(Keys.F6);
-    [Menu("Fill maximum, seller total minus 1 Chaos hotkey", "I WANT must be Chaos Orb. Fill all available HAVE at floor(total seller value) minus 1 Chaos; no percentage cap. Does not place an order.")]
-    public HotkeyNodeV2 PreviewKey { get; set; } = new(Keys.F7);
+    [Menu("Sell selected pair hotkey (Mouse5)", "Fill maximum HAVE, request seller total minus 1 Chaos, then click Place Order once and verify acknowledgement. I WANT must be Chaos Orb.")]
+    public HotkeyNodeV2 PreviewKey { get; set; } = new(Keys.XButton2);
     [Menu("Start selling hotkey")]
     public HotkeyNodeV2 StartKey { get; set; } = new(Keys.F8);
     [Menu("Emergency stop hotkey")]

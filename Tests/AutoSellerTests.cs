@@ -121,29 +121,61 @@ internal static class AutoSellerTests
         fake = new() { Selected = new(Divine, Scour, Verified:true) }; inputBlocked = false;
         try { await SelectedPairFiller.FillMaximum(fake, new(), CancellationToken.None); } catch(InvalidOperationException) { inputBlocked = true; }
         Check(inputBlocked && fake.Fills == 0 && fake.Places == 0, "F7 never mistakes one Divine for a one-Chaos discount");
+        await CheckSelectedSeller();
+    }
+    static async Task CheckSelectedSeller()
+    {
+        var fake = new Fake { Acknowledge=true }; bool pending=false;
+        var sale = await SelectedPairSeller.SellMaximum(fake, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, CancellationToken.None);
+        Check(sale.SubmittedByPlugin && fake.Places == 1 && !pending && sale.OrderId == 100, "Mouse5 fills, submits exactly once, and confirms a new matching order");
+        fake = new() { Acknowledge=true, PartialFill=true };
+        sale = await SelectedPairSeller.SellMaximum(fake, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, CancellationToken.None);
+        Check(fake.Places == 1 && !pending, "Mouse5 acknowledges partial fills by original quantity and ratio");
+        fake = new(); bool failed=false;
+        try { await SelectedPairSeller.SellMaximum(fake, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, CancellationToken.None); } catch(InvalidOperationException) { failed=true; }
+        Check(failed && pending && fake.Places == 1, "Mouse5 acknowledgement timeout keeps the persistent pending latch");
+        failed=false;
+        try { await SelectedPairSeller.SellMaximum(fake, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, CancellationToken.None); } catch(InvalidOperationException) { failed=true; }
+        Check(failed && fake.Places == 1 && fake.Fills == 1, "Mouse5 repeat after ambiguous submission cannot duplicate or even refill");
+        foreach (var problem in new[] { new Fake { Gold=0 }, new Fake { SlotsFull=true }, new Fake { Layout=false }, new Fake { ChangeAfterRead=3 } })
+        {
+            pending=false; failed=false;
+            try { await SelectedPairSeller.SellMaximum(problem, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, CancellationToken.None); } catch(InvalidOperationException) { failed=true; }
+            Check(failed && problem.Places == 0 && !pending, "Mouse5 rejects insufficient gold, occupied slots, unverified layout, or final price change before submitting");
+        }
+        fake = new() { Acknowledge=true }; fake.OnFill=()=>fake.Manual=true; pending=false;
+        sale = await SelectedPairSeller.SellMaximum(fake, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, CancellationToken.None);
+        Check(!sale.SubmittedByPlugin && fake.Places == 0 && !pending, "Mouse5 recognizes an already manually submitted matching order rather than double-clicking");
+        using var canceled = new CancellationTokenSource();
+        fake = new(); fake.OnPlace=()=>canceled.Cancel(); failed=false;
+        try { await SelectedPairSeller.SellMaximum(fake, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, canceled.Token); } catch(OperationCanceledException) { failed=true; }
+        Check(failed && fake.Places == 1 && pending, "Mouse5 emergency stop after click retains the unconfirmed-order journal");
+        fake = new() { Acknowledge=true, WrongAck=true }; pending=false; failed=false;
+        try { await SelectedPairSeller.SellMaximum(fake, new(), (_,_,_)=>pending=true, ()=>pending=false, ()=>pending, CancellationToken.None); } catch(InvalidOperationException) { failed=true; }
+        Check(failed && fake.Places == 1 && pending, "Mouse5 refuses an acknowledgement with the wrong price ratio");
     }
     sealed class Fake : IGameUiAdapter
     {
         public IReadOnlyList<FavoritePair> Favorites=[Pair];
         public FavoritePair Selected=Pair;
-        public bool Open=true, SlotsFull, ChangeMarket, Acknowledge, PartialFill, WrongInputs, Layout=true, Manual;
-        public long Gold=10000; public int Places,Fills,Reads,Want,Have;
+        public bool Open=true, SlotsFull, ChangeMarket, Acknowledge, PartialFill, WrongInputs, Layout=true, Manual, WrongAck;
+        public long Gold=10000; public int Places,Fills,Reads,Want,Have,ChangeAfterRead;
         public StockEvidence StockValue = Stock(100);
-        public Action OnWait,OnFill;
+        public Action OnWait,OnFill,OnPlace;
         readonly List<OrderInfo> orders=new();
         public FavoritesResult ReadFavorites()=>new(Favorites,true,"");
         public StockEvidence ScanInventory(Currency currency)=>StockValue;
         public Task SelectPair(FavoritePair pair,CancellationToken token){token.ThrowIfCancellationRequested();Selected=pair;return Task.CompletedTask;}
-        public MarketBook ReadMarket(FavoritePair pair)=>Book(pair, ChangeMarket && ++Reads>1 ? 2 : 1);
+        public MarketBook ReadMarket(FavoritePair pair){Reads++;return Book(pair,(ChangeMarket && Reads>1) || (ChangeAfterRead>0 && Reads>=ChangeAfterRead) ? 2 : 1);}
         public Task Fill(FavoritePair pair,int want,int have,CancellationToken token){token.ThrowIfCancellationRequested(); Fills++;Want=want;Have=have;OnFill?.Invoke();return Task.CompletedTask;}
         public ExecutionSnapshot Snapshot()
         {
             if((Places>orders.Count || Manual) && Acknowledge && !orders.Any(o=>o.HaveMetadata==Selected.Have.Metadata))
-                orders.Add(new(100+orders.Count,Selected.Want.Metadata,Selected.Have.Metadata,Have,PartialFill?10:Have,Want,Have,false,false,100));
+                orders.Add(new(100+orders.Count,Selected.Want.Metadata,Selected.Have.Metadata,Have,PartialFill?10:Have,WrongAck?Want+1:Want,Have,false,false,100));
             var list= SlotsFull ? Enumerable.Range(1,10).Select(i=>new OrderInfo(i,"x","y",1,1,1,1,false,false,100)).ToArray() : orders.ToArray();
             return new(Open,true,Selected,WrongInputs?0:Want,Have,Gold,100,list,true,Layout);
         }
-        public Task PlaceOnce(CancellationToken token){token.ThrowIfCancellationRequested();Places++;return Task.CompletedTask;}
+        public Task PlaceOnce(CancellationToken token){token.ThrowIfCancellationRequested();Places++;OnPlace?.Invoke();return Task.CompletedTask;}
         public Task WaitTick(CancellationToken token){OnWait?.Invoke();token.ThrowIfCancellationRequested();return Task.CompletedTask;}
         public void AllowManualInput(bool allowed){}
     }
